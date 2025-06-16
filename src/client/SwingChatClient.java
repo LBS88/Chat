@@ -29,13 +29,9 @@ public class SwingChatClient extends JFrame {
     private JButton sendButton;       // Send button
     private PrintWriter out;          // Output stream to server
 
-//    private ObjectOutputStream out;
-//    private ObjectInputStream in;
-
     private final String username;
     private SecretKey sharedKey;
 
-//    private static final String sharedKey = "thisIsAStrongKey";
 
     public SwingChatClient() {
         this.username = promptUsername();
@@ -84,7 +80,7 @@ public class SwingChatClient extends JFrame {
         }
 
 
-        setTitle("Chat Client");
+        setTitle("Le Chat des PD(I)");
         setSize(800, 600);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
@@ -123,11 +119,12 @@ public class SwingChatClient extends JFrame {
                 String line;
                 try {
                     while ((line = in.readLine()) != null) {
-                        String[] parts = line.split("::", 2); // Expect format "username::encryptedText"
+                        String[] parts = line.split("::", 2); // Expect format "encryptedusername::encryptedText"
                         if (parts.length == 2) {
-                            String sender = parts[0];
+                            String sender = EncryptionUtils.decrypt(parts[0], sharedKey);
                             String decrypted = EncryptionUtils.decrypt(parts[1], sharedKey);
-                            chatArea.append(sender + ": " + decrypted + "\n");
+                            LocalDateTime timestamp = LocalDateTime.now();
+                            chatArea.append("[" + timestamp.getHour() + ":" + timestamp.getMinute() + "]" + sender + ": " + decrypted + "\n");
                             chatArea.setCaretPosition(chatArea.getDocument().getLength()); // Auto-scroll
                         }
                     }
@@ -146,10 +143,10 @@ public class SwingChatClient extends JFrame {
         if (!text.isEmpty() && out != null) {
             try {
                 String encryptedText = EncryptionUtils.encrypt(text, sharedKey);
-                out.println(username + "::" + encryptedText); // Send both username + encrypted content
+                String encryptedUsername = EncryptionUtils.encrypt(username, sharedKey);
+                out.println(encryptedUsername + "::" + encryptedText); // Send both username + encrypted content
                 inputField.setText("");
             } catch (Exception e) {
-                e.printStackTrace();
                 showError("Failed to encrypt and send message");
             }
         }
@@ -163,4 +160,3 @@ public class SwingChatClient extends JFrame {
         SwingUtilities.invokeLater(SwingChatClient::new);
     }
 }
-
