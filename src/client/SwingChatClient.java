@@ -1,20 +1,17 @@
 package client;
 
-import common.Message;
+import games.HangmanGUI;
 import utils.EncryptionUtils;
 
 import javax.crypto.SecretKey;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
 import java.io.*;
 import java.net.Socket;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.sql.SQLOutput;
 import java.time.LocalDateTime;
-import java.util.Base64;
 
 import com.formdev.flatlaf.FlatDarkLaf;
 
@@ -106,7 +103,16 @@ public class SwingChatClient extends JFrame {
         inputPanel.add(sendButton, BorderLayout.EAST);
         add(inputPanel, BorderLayout.SOUTH);
 
+        // Optional feature panel for the HangmanGame
+        JPanel featurePanel = new JPanel();
+        JButton playHangmanBtn = new JButton("🎮 Play Hangman");
+        playHangmanBtn.addActionListener(e -> new HangmanGUI());
+        featurePanel.add(playHangmanBtn);
+        add(featurePanel, BorderLayout.NORTH);
+
         setVisible(true);
+        // Automatically focus the chat area
+        SwingUtilities.invokeLater(() -> inputField.requestFocusInWindow());
     }
 
     private void connectToServer() {
