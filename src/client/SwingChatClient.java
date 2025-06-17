@@ -144,15 +144,26 @@ public class SwingChatClient extends JFrame {
         }
     }
 
-    private void sendMessage() {
+ private void sendMessage() {
         String text = inputField.getText().trim();
+        String apresEspace = "";
         if (!text.isEmpty() && out != null) {
             try {
+                String visibleUsername = username;
+                if (clientIp.equals("172.16.64.182")) {
+                    visibleUsername += " (I'm Gay)";
+                }
+
+                if(text.contains("/rename")){
+                    username=promptUsername();
+                    visibleUsername = username;
+                }
                 String encryptedText = EncryptionUtils.encrypt(text, sharedKey);
-                String encryptedUsername = EncryptionUtils.encrypt(username, sharedKey);
-                out.println(encryptedUsername + "::" + encryptedText); // Send both username + encrypted content
+                String encrytedUsername = EncryptionUtils.encrypt(visibleUsername, sharedKey);
+                out.println(encrytedUsername + "::" + encryptedText);
                 inputField.setText("");
             } catch (Exception e) {
+                e.printStackTrace();
                 showError("Failed to encrypt and send message");
             }
         }
