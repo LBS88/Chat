@@ -6,6 +6,10 @@ import utils.EncryptionUtils;
 import javax.crypto.SecretKey;
 import javax.imageio.ImageIO;
 import javax.swing.*;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.Style;
+import javax.swing.text.StyleConstants;
+import javax.swing.text.StyledDocument;
 import java.awt.*;
 import java.io.*;
 import java.net.Socket;
@@ -21,12 +25,12 @@ import com.formdev.flatlaf.FlatDarkLaf;
  */
 public class SwingChatClient extends JFrame {
 
-    private JTextArea chatArea;       // Displays chat messages
+    private JTextPane chatArea;       // Displays chat messages
     private JTextField inputField;    // User input for sending messages
     private JButton sendButton;       // Send button
     private PrintWriter out;          // Output stream to server
 
-    private final String username;
+    private String username;
     private SecretKey sharedKey;
 
 
@@ -64,7 +68,7 @@ public class SwingChatClient extends JFrame {
     private void setupUI() {
 
         try {
-            // Load and set custom .ico icon
+            // Load and set custom icon
             URL iconURL = getClass().getClassLoader().getResource("resources/chat_icon.png");
             if (iconURL != null) {
                 Image icon = ImageIO.read(iconURL);
@@ -77,13 +81,14 @@ public class SwingChatClient extends JFrame {
         }
 
 
-        setTitle("Le Chat des PD(I)");
+        setTitle("Le Chat des PD(I) - " + username  );
         setSize(800, 600);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
         // Chat area setup
-        chatArea = new JTextArea();
+        chatArea = new JTextPane();
+        chatArea.setOpaque(false);
         chatArea.setEditable(false);
         chatArea.setFont(new Font("Lucida Console", Font.PLAIN, 18));
         JScrollPane scrollPane = new JScrollPane(chatArea);
@@ -94,21 +99,22 @@ public class SwingChatClient extends JFrame {
         inputField.setFont(new Font("Lucida Console", Font.PLAIN, 16));
         sendButton = new JButton("Send");
 
-        // Send message on button click or Enter key
-        sendButton.addActionListener(e -> sendMessage());
-        inputField.addActionListener(e -> sendMessage());
-
         JPanel inputPanel = new JPanel(new BorderLayout());
         inputPanel.add(inputField, BorderLayout.CENTER);
         inputPanel.add(sendButton, BorderLayout.EAST);
         add(inputPanel, BorderLayout.SOUTH);
 
+        // Send message on button click or Enter key
+        sendButton.addActionListener(e -> sendMessage());
+        inputField.addActionListener(e -> sendMessage());
+
+
         // Optional feature panel for the HangmanGame
-        JPanel featurePanel = new JPanel();
-        JButton playHangmanBtn = new JButton("🎮 Play Hangman");
-        playHangmanBtn.addActionListener(e -> new HangmanGUI());
-        featurePanel.add(playHangmanBtn);
-        add(featurePanel, BorderLayout.NORTH);
+//        JPanel featurePanel = new JPanel();
+//        JButton playHangmanBtn = new JButton("🎮 Play Hangman");
+//        playHangmanBtn.addActionListener(e -> new HangmanGUI());
+//        featurePanel.add(playHangmanBtn);
+//        add(featurePanel, BorderLayout.NORTH);
 
         setVisible(true);
         // Automatically focus the chat area
@@ -125,48 +131,70 @@ public class SwingChatClient extends JFrame {
                 String line;
                 try {
                     while ((line = in.readLine()) != null) {
-                        String[] parts = line.split("::", 2); // Expect format "encryptedusername::encryptedText"
+                        String[] parts = line.split("::", 2); // Expect format "encryptedUsername::encryptedText"
                         if (parts.length == 2) {
                             String sender = EncryptionUtils.decrypt(parts[0], sharedKey);
                             String decrypted = EncryptionUtils.decrypt(parts[1], sharedKey);
-                            LocalDateTime timestamp = LocalDateTime.now();
-                            chatArea.append("[" + timestamp.getHour() + ":" + timestamp.getMinute() + "]" + sender + ": " + decrypted + "\n");
+
+                            SwingUtilities.invokeLater(() -> appendMessage(LocalDateTime.now(), sender, decrypted));
                             chatArea.setCaretPosition(chatArea.getDocument().getLength()); // Auto-scroll
                         }
                     }
                 } catch (Exception e) {
-                    chatArea.append("Connection lost or failed to read.\n");
+                    System.out.println("Connection lost or failed to read.\n");
                 }
             }).start();
 
         } catch (IOException e) {
-            chatArea.append("Unable to connect to server.\n");
+            System.out.println("Unable to connect to server.\n");
         }
     }
 
  private void sendMessage() {
         String text = inputField.getText().trim();
-        String apresEspace = "";
         if (!text.isEmpty() && out != null) {
             try {
-                String visibleUsername = username;
-                if (clientIp.equals("172.16.64.182")) {
-                    visibleUsername += " (I'm Gay)";
-                }
-
                 if(text.contains("/rename")){
                     username=promptUsername();
-                    visibleUsername = username;
                 }
                 String encryptedText = EncryptionUtils.encrypt(text, sharedKey);
-                String encrytedUsername = EncryptionUtils.encrypt(visibleUsername, sharedKey);
-                out.println(encrytedUsername + "::" + encryptedText);
+                String encryptedUsername = EncryptionUtils.encrypt(username, sharedKey);
+                out.println(encryptedUsername + "::" + encryptedText);
                 inputField.setText("");
             } catch (Exception e) {
                 e.printStackTrace();
                 showError("Failed to encrypt and send message");
             }
         }
+    }
+
+    private void appendMessage(LocalDateTime timestamp, String username, String message) {
+        StyledDocument doc = chatArea.getStyledDocument();
+
+        // Style du Pseudo
+        Style usernameStyle = chatArea.addStyle("usernameStyle", null);
+        StyleConstants.setForeground(usernameStyle, getColorForUsername(username));
+//        StyleConstants.setBold(usernameStyle, true);
+
+        try {
+            //  Heure
+            doc.insertString(doc.getLength(), "[" + timestamp.getHour() + ":" + timestamp.getMinute() + "]", null);
+            // Username
+            doc.insertString(doc.getLength(), username + ": ", usernameStyle);
+            // Message
+            doc.insertString(doc.getLength(), message + "\n", null);
+        } catch (BadLocationException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+
+
+    private Color getColorForUsername(String username) {
+        int hash = username.hashCode();
+        float hue = (hash & 0xFFFFFFF) % 360 / 360f;
+        return Color.getHSBColor(hue, 0.7f, 0.8f);
     }
 
     private void showError(String msg) {
